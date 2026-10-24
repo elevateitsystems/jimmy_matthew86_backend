@@ -1,0 +1,91 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum Role {
+    SUPER_ADMIN
+    STAFF
+}
+
+model User {
+    id           String   @id @default(cuid())
+    name         String
+    email        String   @unique
+    passwordHash String
+    role         Role     @default(STAFF)
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+
+    @@index([createdAt])
+}
+
+model WorkspaceSettings {
+    id           String   @id
+    emailUpdates Boolean  @default(true)
+    compactTable Boolean  @default(false)
+    defaultView  String   @default("Active")
+    updatedAt    DateTime @updatedAt
+}
+
+model Container {
+    id                String    @id @default(cuid())
+    containerNumber   String    @unique
+    masterBillNumber  String?
+    scacCode          String?
+    steamshipLine     String?
+    vesselName        String?
+    voyageNumber      String?
+    containerSize     String?
+    containerType     String?
+    equipmentType     String?
+    originName        String?
+    portName          String?
+    terminalName      String?
+    trackingStatus    String?
+    lastFreeDay       DateTime?
+    detentionLastFreeDay DateTime?
+    dischargedAt      DateTime?
+    outgatedAt        DateTime?
+    emptyReturnedAt   DateTime?
+    etaAtTerminal     DateTime?
+    etdFromOrigin     DateTime?
+    hasAvailableEvent Boolean   @default(false)
+    history           Json?
+    lastSeenAt        DateTime?
+    missingFromFeed   Boolean   @default(false)
+
+    destination       String?
+    carrier           String?
+    appointmentAt     DateTime?
+    deliveredAt       DateTime?
+    notes             String?
+    driverName        String?
+    truckNumber       String?
+    receivingContact  String?
+    contactPhone      String?
+    deliveryAddress   String?
+
+    createdAt         DateTime  @default(now())
+    updatedAt         DateTime  @updatedAt
+
+    @@index([masterBillNumber])
+    @@index([missingFromFeed])
+}
+
+model SyncRun {
+    id              String    @id @default(cuid())
+    startedAt       DateTime  @default(now())
+    finishedAt      DateTime?
+    success         Boolean
+    source          String
+    message         String?
+    containersSeen  Int       @default(0)
+    emailSent       Boolean   @default(false)
+
+    @@index([startedAt])
+}
