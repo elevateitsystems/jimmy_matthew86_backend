@@ -14,10 +14,13 @@ Operations API for the Java Maryland container dashboard. One company, two sign-
 cp .env.example .env
 npm install
 docker compose up -d
+npx prisma generate
 npx prisma migrate deploy
 npm run seed
 npm run start:dev
 ```
+
+Run those Prisma commands from this folder after `npm install`, so they use Prisma 7 from this project. Node.js 22 is required.
 
 The API listens on `PORT` from `.env`. The local file uses `4003`.
 

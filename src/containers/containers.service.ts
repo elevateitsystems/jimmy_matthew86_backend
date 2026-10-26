@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Workbook } from 'exceljs';
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../generated/prisma/client.js';
 
 const { Workbook: ExcelWorkbook } = createRequire(import.meta.url)(
   'exceljs',
