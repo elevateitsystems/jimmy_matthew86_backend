@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { defineConfig } from "prisma/config";
 
 function loadEnvFile() {
   const file = resolve(process.cwd(), ".env");
@@ -33,7 +32,7 @@ function loadEnvFile() {
 
 loadEnvFile();
 
-export default defineConfig({
+export default {
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
@@ -44,4 +43,4 @@ export default defineConfig({
       process.env.DATABASE_URL ??
       "postgresql://postgres:root@127.0.0.1:5432/container_tracker?schema=public",
   },
-});
+};
