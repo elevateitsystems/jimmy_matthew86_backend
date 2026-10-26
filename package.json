@@ -6,9 +6,9 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "build": "npx nest build",
-    "start": "npx nest start",
-    "start:dev": "npx nest start --watch",
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
     "prebuild": "npx prisma generate",
     "prisma:generate": "npx prisma generate",
