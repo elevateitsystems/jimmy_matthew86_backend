@@ -10,6 +10,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
 
+  app.set('trust proxy', 1);
   app.useStaticAssets(join(process.cwd(), 'public'));
   app.setGlobalPrefix('api');
   const configuredOrigin = config.get('FRONTEND_URL');
