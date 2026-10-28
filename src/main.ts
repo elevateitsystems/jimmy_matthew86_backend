@@ -12,8 +12,14 @@ async function bootstrap() {
 
   app.useStaticAssets(join(process.cwd(), 'public'));
   app.setGlobalPrefix('api');
+  const configuredOrigin = config.get('FRONTEND_URL');
+  const frontendUrl =
+    typeof configuredOrigin === 'string' && configuredOrigin.length > 0
+      ? configuredOrigin
+      : 'http://localhost:3000';
+
   app.enableCors({
-    origin: config.get<string>('FRONTEND_URL', 'http://localhost:3000'),
+    origin: [frontendUrl, 'https://cargoquay.com'],
     credentials: true,
   });
   app.useGlobalPipes(
