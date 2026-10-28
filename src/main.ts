@@ -19,7 +19,12 @@ async function bootstrap() {
       : 'http://localhost:3000';
 
   app.enableCors({
-    origin: [frontendUrl, 'https://cargoquay.com'],
+    origin: [
+      frontendUrl,
+      'http://localhost:3000',
+      'https://cargoquay.com',
+      'https://www.cargoquay.com',
+    ],
     credentials: true,
   });
   app.useGlobalPipes(
