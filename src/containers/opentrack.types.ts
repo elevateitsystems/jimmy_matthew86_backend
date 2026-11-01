@@ -1,5 +1,6 @@
 export type OpenTrackLocation = {
   name?: string;
+  timezone?: string;
 };
 
 export type OpenTrackHistoryEvent = {
@@ -22,6 +23,7 @@ export type OpenTrackContainer = {
   voyageNumber?: string;
   originPort?: OpenTrackLocation;
   destinationPort?: OpenTrackLocation;
+  finalDestination?: OpenTrackLocation;
   terminalAtDestinationPort?: { name?: string };
   portOfLoading?: string;
   portOfDischarge?: string;
@@ -32,6 +34,7 @@ export type OpenTrackContainer = {
   outgatedDate?: string;
   emptyReturnedDate?: string;
   etaAtTerminal?: string;
+  etaAtDestination?: string;
   etdFromOrigin?: string;
   history?: OpenTrackHistoryEvent[];
 };

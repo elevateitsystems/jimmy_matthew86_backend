@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import {
   calendarDayDifference,
+  formatCalendarDate,
   formatDisplayDate,
   presentContainer,
   type ShipmentStatus,
@@ -50,6 +51,8 @@ const listSelect = {
   outgatedAt: true,
   emptyReturnedAt: true,
   etaAtTerminal: true,
+  etaAtDestination: true,
+  finalDestinationTimeZone: true,
   etdFromOrigin: true,
   hasAvailableEvent: true,
   lastSeenAt: true,
@@ -213,7 +216,9 @@ export class ContainersService {
     for (const view of views) {
       sheet.addRow({
         ...view,
-        keyDate: view.keyDate ? view.keyDate.slice(0, 10) : '',
+        keyDate: view.keyDate
+          ? formatCalendarDate(new Date(view.keyDate), view.keyDateTimeZone)
+          : '',
         appointmentAt: view.appointmentAt?.slice(0, 10) ?? '',
         deliveredAt: view.deliveredAt?.slice(0, 10) ?? '',
       });
@@ -273,6 +278,7 @@ export class ContainersService {
         ? formatDisplayDate(full.detentionLastFreeDay)
         : null,
       etaAtTerminal: full.etaAtTerminal?.toISOString() ?? null,
+      etaAtDestination: full.etaAtDestination?.toISOString() ?? null,
       etdFromOrigin: full.etdFromOrigin?.toISOString() ?? null,
       dischargedAt: full.dischargedAt?.toISOString() ?? null,
       outgatedAt: full.outgatedAt?.toISOString() ?? null,
@@ -303,11 +309,17 @@ export class ContainersService {
       status: presentation.status,
       statusLabel: presentation.statusLabel,
       trackingStatus: row.trackingStatus,
+      eta:
+        (row.etaAtDestination ?? row.etaAtTerminal)?.toISOString() ?? null,
       keyDate: presentation.keyDate,
       keyDateText: presentation.keyDate
-        ? formatDisplayDate(new Date(presentation.keyDate))
+        ? formatDisplayDate(
+            new Date(presentation.keyDate),
+            presentation.keyDateTimeZone,
+          )
         : null,
       keyDateLabel: presentation.keyDateLabel,
+      keyDateTimeZone: presentation.keyDateTimeZone,
       days: presentation.days,
       daysLabel: presentation.daysLabel,
       daysUntil: presentation.daysUntil,

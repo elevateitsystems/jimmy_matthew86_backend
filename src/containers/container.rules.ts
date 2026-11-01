@@ -18,6 +18,8 @@ export type ContainerFacts = {
   outgatedAt: Date | null;
   emptyReturnedAt: Date | null;
   etaAtTerminal: Date | null;
+  etaAtDestination: Date | null;
+  finalDestinationTimeZone: string | null;
   etdFromOrigin: Date | null;
   hasAvailableEvent: boolean;
   destination: string | null;
@@ -126,7 +128,10 @@ export function shipmentStatus(container: ContainerFacts): ShipmentStatus {
 export function presentContainer(container: ContainerFacts, now = new Date()) {
   const status = shipmentStatus(container);
   const key = keyDate(container, status);
-  const daysUntil = key.date ? calendarDayDifference(key.date, now) : null;
+  const keyDateTimeZone = safeTimeZone(key.timeZone);
+  const daysUntil = key.date
+    ? calendarDayDifference(key.date, now, keyDateTimeZone)
+    : null;
   const urgency = dateUrgency(status, daysUntil);
   const days =
     status === 'DEHIRED' && daysUntil !== null ? -daysUntil : daysUntil;
@@ -137,6 +142,7 @@ export function presentContainer(container: ContainerFacts, now = new Date()) {
     onOperationsList: isOnOperationsList(container),
     keyDate: key.date?.toISOString() ?? null,
     keyDateLabel: key.label,
+    keyDateTimeZone,
     days,
     daysLabel: daysLabel(status, days),
     daysUntil,
@@ -148,9 +154,13 @@ export function presentContainer(container: ContainerFacts, now = new Date()) {
   };
 }
 
-export function calendarDayDifference(target: Date, now = new Date()) {
+export function calendarDayDifference(
+  target: Date,
+  now = new Date(),
+  timeZone = TIME_ZONE,
+) {
   const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: TIME_ZONE,
+    timeZone: safeTimeZone(timeZone),
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -162,19 +172,43 @@ export function calendarDayDifference(target: Date, now = new Date()) {
   return Math.round((toUtcDay(target) - toUtcDay(now)) / 86_400_000);
 }
 
-export function formatDisplayDate(value: Date | null) {
+export function formatDisplayDate(value: Date | null, timeZone = TIME_ZONE) {
   if (!value) {
     return '';
   }
   return new Intl.DateTimeFormat('en-US', {
-    timeZone: TIME_ZONE,
+    timeZone: safeTimeZone(timeZone),
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   }).format(value);
 }
 
-function keyDate(container: ContainerFacts, status: ShipmentStatus) {
+export function formatCalendarDate(value: Date, timeZone = TIME_ZONE) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: safeTimeZone(timeZone),
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(value);
+}
+
+export function safeTimeZone(timeZone?: string | null) {
+  if (!timeZone) {
+    return TIME_ZONE;
+  }
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone }).format(0);
+    return timeZone;
+  } catch {
+    return TIME_ZONE;
+  }
+}
+
+function keyDate(
+  container: ContainerFacts,
+  status: ShipmentStatus,
+): { date: Date | null; label: string; timeZone?: string | null } {
   switch (status) {
     case 'NOT_COLLECTED':
       return { date: container.lastFreeDay, label: 'Last free day' };
@@ -188,6 +222,13 @@ function keyDate(container: ContainerFacts, status: ShipmentStatus) {
     case 'DELIVERED':
       return { date: container.deliveredAt, label: 'Delivered' };
     case 'ON_WATER':
+      if (container.etaAtDestination) {
+        return {
+          date: container.etaAtDestination,
+          label: 'ETA',
+          timeZone: container.finalDestinationTimeZone,
+        };
+      }
       return { date: container.etaAtTerminal, label: 'ETA' };
     case 'AT_ORIGIN':
       return { date: container.etdFromOrigin, label: 'ETD' };
