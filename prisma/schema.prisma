@@ -54,6 +54,8 @@ model Container {
     outgatedAt        DateTime?
     emptyReturnedAt   DateTime?
     etaAtTerminal     DateTime?
+    etaAtDestination  DateTime?
+    finalDestinationTimeZone String?
     etdFromOrigin     DateTime?
     hasAvailableEvent Boolean   @default(false)
     history           Json?

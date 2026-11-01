@@ -68,6 +68,8 @@ export function toTrackingData(item: OpenTrackContainer, seenAt: Date) {
       parseDate(item.emptyReturnedDate) ??
       milestoneDate(history, EMPTY_RETURNED),
     etaAtTerminal: parseDate(item.etaAtTerminal),
+    etaAtDestination: parseDate(item.etaAtDestination),
+    finalDestinationTimeZone: item.finalDestination?.timezone ?? null,
     etdFromOrigin: parseDate(item.etdFromOrigin),
     hasAvailableEvent: history.some(
       (event) => event.milestone !== undefined && AVAILABLE.has(event.milestone),
