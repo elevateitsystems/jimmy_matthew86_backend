@@ -24,6 +24,14 @@ const OUTGATED = new Set([
 
 const EMPTY_RETURNED = new Set(['EMPTY_RETURNED']);
 
+const DEPARTED_ON_RAIL = new Set(['LOADED_ON_RAIL', 'DEPARTED_ON_RAIL']);
+
+const ARRIVED_AT_RAIL = new Set([
+  'ARRIVED_AT_RAIL_FACILITY',
+  'UNLOADED_FROM_RAIL',
+  'AVAILABLE_AT_RAIL_FACILITY',
+]);
+
 export function normalizeContainerNumber(value: string) {
   return value.replace(/\s+/g, '').toUpperCase();
 }
@@ -69,7 +77,16 @@ export function toTrackingData(item: OpenTrackContainer, seenAt: Date) {
       milestoneDate(history, EMPTY_RETURNED),
     etaAtTerminal: parseDate(item.etaAtTerminal),
     etaAtDestination: parseDate(item.etaAtDestination),
+    finalDestinationName: item.finalDestination?.name ?? null,
     finalDestinationTimeZone: item.finalDestination?.timezone ?? null,
+    lastFreeDayAtRailStation: parseDate(item.lastFreeDayAtRailStation),
+    isRailMove:
+      item.isRailMove === true ||
+      Boolean(item.etaAtDestination) ||
+      hasMilestone(history, item.status, DEPARTED_ON_RAIL) ||
+      hasMilestone(history, item.status, ARRIVED_AT_RAIL),
+    departedOnRail: hasMilestone(history, item.status, DEPARTED_ON_RAIL),
+    arrivedAtRail: hasMilestone(history, item.status, ARRIVED_AT_RAIL),
     etdFromOrigin: parseDate(item.etdFromOrigin),
     hasAvailableEvent: history.some(
       (event) => event.milestone !== undefined && AVAILABLE.has(event.milestone),
@@ -112,6 +129,20 @@ export function timelineFromHistory(history: unknown) {
     );
 }
 
+function hasMilestone(
+  history: OpenTrackHistoryEvent[],
+  status: string | undefined,
+  milestones: Set<string>,
+) {
+  return (
+    (status !== undefined && milestones.has(status)) ||
+    history.some(
+      (event) =>
+        event.milestone !== undefined && milestones.has(event.milestone),
+    )
+  );
+}
+
 function milestoneDate(
   history: OpenTrackHistoryEvent[],
   milestones: Set<string>,
@@ -150,8 +181,28 @@ const MILESTONE_COPY: Record<string, { title: string; description: string }> = {
     description: 'Released and available at the terminal.',
   },
   AVAILABLE_AT_RAIL_FACILITY: {
-    title: 'Available for pickup',
-    description: 'Released and available at the rail facility.',
+    title: 'Available at rail terminal',
+    description: 'Released and available at the final rail facility.',
+  },
+  LOADED_ON_RAIL: {
+    title: 'Loaded on rail',
+    description: 'Loaded on the train at the discharge port.',
+  },
+  DEPARTED_ON_RAIL: {
+    title: 'Departed on rail',
+    description: 'Train departed the discharge port for the final rail facility.',
+  },
+  ARRIVED_AT_RAIL_FACILITY: {
+    title: 'Arrived at rail terminal',
+    description: 'Arrived at the final rail facility.',
+  },
+  UNLOADED_FROM_RAIL: {
+    title: 'Unloaded from rail',
+    description: 'Unloaded at the final rail facility.',
+  },
+  FULL_INGATED_TO_RAIL_FACILITY: {
+    title: 'Ingated to rail',
+    description: 'Received at the rail ramp.',
   },
   AVAILABLE_AT_OFFDOCK_FACILITY: {
     title: 'Available for pickup',

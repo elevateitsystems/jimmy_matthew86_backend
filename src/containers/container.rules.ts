@@ -3,6 +3,9 @@ export const TIME_ZONE = 'America/New_York';
 export type ShipmentStatus =
   | 'AT_ORIGIN'
   | 'ON_WATER'
+  | 'AT_OCEAN_TERMINAL'
+  | 'ON_RAIL'
+  | 'AT_RAIL_TERMINAL'
   | 'NOT_COLLECTED'
   | 'AT_WAREHOUSE'
   | 'DEHIRED'
@@ -19,7 +22,12 @@ export type ContainerFacts = {
   emptyReturnedAt: Date | null;
   etaAtTerminal: Date | null;
   etaAtDestination: Date | null;
+  finalDestinationName: string | null;
   finalDestinationTimeZone: string | null;
+  lastFreeDayAtRailStation: Date | null;
+  isRailMove: boolean;
+  departedOnRail: boolean;
+  arrivedAtRail: boolean;
   etdFromOrigin: Date | null;
   hasAvailableEvent: boolean;
   destination: string | null;
@@ -47,16 +55,30 @@ const ON_WATER = new Set([
   'BARGE_BERTHED_AT_DESTINATION',
 ]);
 
-const OPERATIONS_STATUS = new Set([
+const DISCHARGED_STATUS = new Set([
   'DISCHARGED',
   'DISCHARGED_FROM_BARGE_AT_DESTINATION',
-  'AVAILABLE',
+]);
+
+const ON_RAIL_STATUS = new Set(['LOADED_ON_RAIL', 'DEPARTED_ON_RAIL']);
+
+const AT_RAIL_STATUS = new Set([
+  'ARRIVED_AT_RAIL_FACILITY',
+  'UNLOADED_FROM_RAIL',
   'AVAILABLE_AT_RAIL_FACILITY',
-  'AVAILABLE_AT_OFFDOCK_FACILITY',
+]);
+
+const OUTGATE_STATUS = new Set([
   'FULL_OUTGATED',
   'FULL_OUTGATED_FROM_RAIL_FACILITY',
   'FULL_OUTGATED_FROM_OFFDOCK_FACILITY',
-  'EMPTY_RETURNED',
+]);
+
+const OCEAN_PICKUP_STATUS = new Set([
+  'DISCHARGED',
+  'DISCHARGED_FROM_BARGE_AT_DESTINATION',
+  'AVAILABLE',
+  'AVAILABLE_AT_OFFDOCK_FACILITY',
 ]);
 
 const SIZE_LABEL: Record<string, string> = {
@@ -78,21 +100,25 @@ const TYPE_LABEL: Record<string, string> = {
 const STATUS_LABEL: Record<ShipmentStatus, string> = {
   AT_ORIGIN: 'At origin',
   ON_WATER: 'On water / arriving',
+  AT_OCEAN_TERMINAL: 'At ocean terminal',
+  ON_RAIL: 'On rail',
+  AT_RAIL_TERMINAL: 'At rail terminal',
   NOT_COLLECTED: 'Not collected',
   AT_WAREHOUSE: 'At warehouse',
   DEHIRED: 'Dehired',
   DELIVERED: 'Delivered',
 };
 
+const ARRIVED_STATUSES = new Set<ShipmentStatus>([
+  'AT_OCEAN_TERMINAL',
+  'AT_RAIL_TERMINAL',
+  'NOT_COLLECTED',
+  'AT_WAREHOUSE',
+  'DEHIRED',
+]);
+
 export function isOnOperationsList(container: ContainerFacts) {
-  return (
-    container.hasAvailableEvent ||
-    container.dischargedAt !== null ||
-    container.outgatedAt !== null ||
-    container.emptyReturnedAt !== null ||
-    (container.trackingStatus !== null &&
-      OPERATIONS_STATUS.has(container.trackingStatus))
-  );
+  return ARRIVED_STATUSES.has(shipmentStatus(container));
 }
 
 export function isStaffDelivered(container: ContainerFacts) {
@@ -107,22 +133,68 @@ export function shipmentStatus(container: ContainerFacts): ShipmentStatus {
   if (isStaffDelivered(container)) {
     return 'DELIVERED';
   }
-  if (isOnOperationsList(container)) {
-    if (container.emptyReturnedAt) {
-      return 'DEHIRED';
-    }
-    if (container.outgatedAt) {
-      return 'AT_WAREHOUSE';
-    }
-    return 'NOT_COLLECTED';
+  if (container.emptyReturnedAt || container.trackingStatus === 'EMPTY_RETURNED') {
+    return 'DEHIRED';
   }
   if (
-    container.trackingStatus &&
-    ON_WATER.has(container.trackingStatus)
+    container.outgatedAt !== null ||
+    (container.trackingStatus !== null && OUTGATE_STATUS.has(container.trackingStatus))
   ) {
+    return 'AT_WAREHOUSE';
+  }
+  const rail = railStage(container);
+  if (rail === 'at_rail') {
+    return 'AT_RAIL_TERMINAL';
+  }
+  if (rail === 'on_rail') {
+    return 'ON_RAIL';
+  }
+  if (rail === 'ocean') {
+    return 'AT_OCEAN_TERMINAL';
+  }
+  if (
+    container.hasAvailableEvent ||
+    container.dischargedAt !== null ||
+    (container.trackingStatus !== null &&
+      OCEAN_PICKUP_STATUS.has(container.trackingStatus))
+  ) {
+    return 'NOT_COLLECTED';
+  }
+  if (container.trackingStatus && ON_WATER.has(container.trackingStatus)) {
     return 'ON_WATER';
   }
   return 'AT_ORIGIN';
+}
+
+function railStage(container: ContainerFacts) {
+  const railShipment =
+    container.isRailMove ||
+    container.etaAtDestination !== null ||
+    container.departedOnRail ||
+    container.arrivedAtRail;
+  if (!railShipment) {
+    return 'none';
+  }
+  if (
+    container.arrivedAtRail ||
+    (container.trackingStatus !== null && AT_RAIL_STATUS.has(container.trackingStatus))
+  ) {
+    return 'at_rail';
+  }
+  if (
+    container.departedOnRail ||
+    (container.trackingStatus !== null && ON_RAIL_STATUS.has(container.trackingStatus))
+  ) {
+    return 'on_rail';
+  }
+  if (
+    container.dischargedAt !== null ||
+    (container.trackingStatus !== null &&
+      DISCHARGED_STATUS.has(container.trackingStatus))
+  ) {
+    return 'ocean';
+  }
+  return 'none';
 }
 
 export function presentContainer(container: ContainerFacts, now = new Date()) {
@@ -132,7 +204,11 @@ export function presentContainer(container: ContainerFacts, now = new Date()) {
   const daysUntil = key.date
     ? calendarDayDifference(key.date, now, keyDateTimeZone)
     : null;
-  const urgency = dateUrgency(status, daysUntil);
+  const urgency = dateUrgency(
+    status,
+    daysUntil,
+    container.lastFreeDayAtRailStation !== null,
+  );
   const days =
     status === 'DEHIRED' && daysUntil !== null ? -daysUntil : daysUntil;
 
@@ -148,10 +224,18 @@ export function presentContainer(container: ContainerFacts, now = new Date()) {
     daysUntil,
     urgency,
     size: sizeLabel(container),
-    portTerminal: [container.portName, container.terminalName]
-      .filter(Boolean)
-      .join(' · '),
+    portTerminal: placeLabel(container, status),
   };
+}
+
+function placeLabel(container: ContainerFacts, status: ShipmentStatus) {
+  if (
+    (status === 'ON_RAIL' || status === 'AT_RAIL_TERMINAL') &&
+    container.finalDestinationName
+  ) {
+    return container.finalDestinationName;
+  }
+  return [container.portName, container.terminalName].filter(Boolean).join(' · ');
 }
 
 export function calendarDayDifference(
@@ -222,6 +306,8 @@ function keyDate(
     case 'DELIVERED':
       return { date: container.deliveredAt, label: 'Delivered' };
     case 'ON_WATER':
+    case 'AT_OCEAN_TERMINAL':
+    case 'ON_RAIL':
       if (container.etaAtDestination) {
         return {
           date: container.etaAtDestination,
@@ -230,6 +316,19 @@ function keyDate(
         };
       }
       return { date: container.etaAtTerminal, label: 'ETA' };
+    case 'AT_RAIL_TERMINAL':
+      if (container.lastFreeDayAtRailStation) {
+        return {
+          date: container.lastFreeDayAtRailStation,
+          label: 'Rail last free day',
+          timeZone: container.finalDestinationTimeZone,
+        };
+      }
+      return {
+        date: container.etaAtDestination,
+        label: 'ETA',
+        timeZone: container.finalDestinationTimeZone,
+      };
     case 'AT_ORIGIN':
       return { date: container.etdFromOrigin, label: 'ETD' };
   }
@@ -238,11 +337,16 @@ function keyDate(
 function dateUrgency(
   status: ShipmentStatus,
   daysUntil: number | null,
+  hasRailDeadline = false,
 ): Urgency {
   if (daysUntil === null) {
     return 'NONE';
   }
-  if (status === 'NOT_COLLECTED' || status === 'AT_WAREHOUSE') {
+  if (
+    status === 'NOT_COLLECTED' ||
+    status === 'AT_WAREHOUSE' ||
+    (status === 'AT_RAIL_TERMINAL' && hasRailDeadline)
+  ) {
     if (daysUntil < 0) {
       return 'RED';
     }

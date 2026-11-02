@@ -36,6 +36,8 @@ export type OpenTrackContainer = {
   etaAtTerminal?: string;
   etaAtDestination?: string;
   etdFromOrigin?: string;
+  lastFreeDayAtRailStation?: string;
+  isRailMove?: boolean;
   history?: OpenTrackHistoryEvent[];
 };
 
