@@ -1,0 +1,5 @@
+ALTER TABLE "Container" ADD COLUMN "finalDestinationName" TEXT,
+ADD COLUMN "lastFreeDayAtRailStation" TIMESTAMP(3),
+ADD COLUMN "isRailMove" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "departedOnRail" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "arrivedAtRail" BOOLEAN NOT NULL DEFAULT false;

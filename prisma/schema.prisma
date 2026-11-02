@@ -55,7 +55,12 @@ model Container {
     emptyReturnedAt   DateTime?
     etaAtTerminal     DateTime?
     etaAtDestination  DateTime?
+    finalDestinationName String?
     finalDestinationTimeZone String?
+    lastFreeDayAtRailStation DateTime?
+    isRailMove        Boolean   @default(false)
+    departedOnRail    Boolean   @default(false)
+    arrivedAtRail     Boolean   @default(false)
     etdFromOrigin     DateTime?
     hasAvailableEvent Boolean   @default(false)
     history           Json?

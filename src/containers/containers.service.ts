@@ -52,7 +52,12 @@ const listSelect = {
   emptyReturnedAt: true,
   etaAtTerminal: true,
   etaAtDestination: true,
+  finalDestinationName: true,
   finalDestinationTimeZone: true,
+  lastFreeDayAtRailStation: true,
+  isRailMove: true,
+  departedOnRail: true,
+  arrivedAtRail: true,
   etdFromOrigin: true,
   hasAvailableEvent: true,
   lastSeenAt: true,
@@ -279,6 +284,9 @@ export class ContainersService {
         : null,
       etaAtTerminal: full.etaAtTerminal?.toISOString() ?? null,
       etaAtDestination: full.etaAtDestination?.toISOString() ?? null,
+      finalDestinationName: full.finalDestinationName,
+      lastFreeDayAtRailStation:
+        full.lastFreeDayAtRailStation?.toISOString() ?? null,
       etdFromOrigin: full.etdFromOrigin?.toISOString() ?? null,
       dischargedAt: full.dischargedAt?.toISOString() ?? null,
       outgatedAt: full.outgatedAt?.toISOString() ?? null,
@@ -306,6 +314,7 @@ export class ContainersService {
       portName: row.portName,
       terminalName: row.terminalName,
       portTerminal: presentation.portTerminal,
+      finalDestinationName: row.finalDestinationName,
       status: presentation.status,
       statusLabel: presentation.statusLabel,
       trackingStatus: row.trackingStatus,
@@ -371,7 +380,7 @@ export class ContainersService {
 
 function defaultBucket(view: ContainerView): ContainerBucket {
   if (view === 'in_transit') {
-    return 'on_water';
+    return 'in_transit';
   }
   if (view === 'delivered') {
     return 'delivered';
@@ -386,6 +395,12 @@ function dashboardCounts(views: DashboardRow[]) {
   const delivered = count(views, 'DELIVERED');
   const onWater = count(views, 'ON_WATER');
   const atOrigin = count(views, 'AT_ORIGIN');
+  const atOceanTerminal = count(views, 'AT_OCEAN_TERMINAL');
+  const onRail = count(views, 'ON_RAIL');
+  const atRailTerminal = count(views, 'AT_RAIL_TERMINAL');
+  const railPastLastFreeDay = views.filter(
+    (view) => view.status === 'AT_RAIL_TERMINAL' && view.urgency === 'RED',
+  ).length;
   const notCollectedPastLastFreeDay = views.filter(
     (view) => view.status === 'NOT_COLLECTED' && view.urgency === 'RED',
   ).length;
@@ -407,6 +422,10 @@ function dashboardCounts(views: DashboardRow[]) {
   return {
     atOrigin,
     onWater,
+    atOceanTerminal,
+    onRail,
+    atRailTerminal,
+    railPastLastFreeDay,
     notCollected,
     notCollectedPastLastFreeDay,
     atWarehouse,
@@ -416,7 +435,7 @@ function dashboardCounts(views: DashboardRow[]) {
     deliveredLast30Days,
     noDestination,
     arrived,
-    inTransit: onWater,
+    inTransit: onWater + onRail,
     open: arrived,
     overdue,
   };
@@ -435,6 +454,25 @@ function screen(counts: ReturnType<typeof dashboardCounts>) {
         id: 'on_water',
         label: 'On water / arriving',
         count: counts.onWater,
+      },
+      {
+        id: 'at_ocean_terminal',
+        label: 'At ocean terminal · awaiting rail',
+        count: counts.atOceanTerminal,
+      },
+      {
+        id: 'on_rail',
+        label: 'On rail',
+        count: counts.onRail,
+      },
+      {
+        id: 'at_rail_terminal',
+        label: 'At rail terminal',
+        count: counts.atRailTerminal,
+        detail:
+          counts.railPastLastFreeDay > 0
+            ? `${counts.railPastLastFreeDay} past rail LFD`
+            : null,
       },
       {
         id: 'not_collected',
@@ -513,6 +551,17 @@ function screen(counts: ReturnType<typeof dashboardCounts>) {
         count: counts.noDestination,
       },
       { id: 'at_warehouse', label: 'At warehouse', count: counts.atWarehouse },
+      {
+        id: 'at_ocean_terminal',
+        label: 'At ocean terminal',
+        count: counts.atOceanTerminal,
+      },
+      { id: 'on_rail', label: 'On rail', count: counts.onRail },
+      {
+        id: 'at_rail_terminal',
+        label: 'At rail terminal',
+        count: counts.atRailTerminal,
+      },
       { id: 'overdue', label: 'Overdue', count: counts.overdue },
     ],
   };
@@ -578,6 +627,14 @@ function matchesBucket(
       return view.status === 'AT_ORIGIN';
     case 'on_water':
       return view.status === 'ON_WATER';
+    case 'in_transit':
+      return view.status === 'ON_WATER' || view.status === 'ON_RAIL';
+    case 'at_ocean_terminal':
+      return view.status === 'AT_OCEAN_TERMINAL';
+    case 'on_rail':
+      return view.status === 'ON_RAIL';
+    case 'at_rail_terminal':
+      return view.status === 'AT_RAIL_TERMINAL';
     case 'not_collected':
       return view.status === 'NOT_COLLECTED';
     case 'at_warehouse':
