@@ -3,6 +3,7 @@ import { formatDisplayDate } from './container.rules.js';
 import type {
   OpenTrackContainer,
   OpenTrackHistoryEvent,
+  OpenTrackLocation,
 } from './opentrack.types.js';
 
 const AVAILABLE = new Set([
@@ -48,6 +49,11 @@ export function formatContainerNumber(value: string) {
 export function toTrackingData(item: OpenTrackContainer, seenAt: Date) {
   const history = item.history ?? [];
   const containerNumber = normalizeContainerNumber(item.containerId ?? '');
+  const isRailMove =
+    item.isRailMove === true ||
+    Boolean(item.etaAtDestination) ||
+    hasMilestone(history, item.status, DEPARTED_ON_RAIL) ||
+    hasMilestone(history, item.status, ARRIVED_AT_RAIL);
 
   return {
     containerNumber,
@@ -77,14 +83,12 @@ export function toTrackingData(item: OpenTrackContainer, seenAt: Date) {
       milestoneDate(history, EMPTY_RETURNED),
     etaAtTerminal: parseDate(item.etaAtTerminal),
     etaAtDestination: parseDate(item.etaAtDestination),
-    finalDestinationName: item.finalDestination?.name ?? null,
-    finalDestinationTimeZone: item.finalDestination?.timezone ?? null,
+    finalDestinationName: isRailMove ? placeWithState(item.finalDestination) : null,
+    finalDestinationTimeZone: isRailMove
+      ? (item.finalDestination?.timezone ?? null)
+      : null,
     lastFreeDayAtRailStation: parseDate(item.lastFreeDayAtRailStation),
-    isRailMove:
-      item.isRailMove === true ||
-      Boolean(item.etaAtDestination) ||
-      hasMilestone(history, item.status, DEPARTED_ON_RAIL) ||
-      hasMilestone(history, item.status, ARRIVED_AT_RAIL),
+    isRailMove,
     departedOnRail: hasMilestone(history, item.status, DEPARTED_ON_RAIL),
     arrivedAtRail: hasMilestone(history, item.status, ARRIVED_AT_RAIL),
     etdFromOrigin: parseDate(item.etdFromOrigin),
@@ -127,6 +131,15 @@ export function timelineFromHistory(history: unknown) {
     .sort((left, right) =>
       (right.timestamp ?? '').localeCompare(left.timestamp ?? ''),
     );
+}
+
+function placeWithState(place?: OpenTrackLocation | null) {
+  const name = place?.name?.trim();
+  if (!name) {
+    return null;
+  }
+  const state = place?.state?.trim();
+  return state ? `${name}, ${state}` : name;
 }
 
 function hasMilestone(

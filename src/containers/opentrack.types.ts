@@ -1,5 +1,6 @@
 export type OpenTrackLocation = {
   name?: string;
+  state?: string;
   timezone?: string;
 };
 

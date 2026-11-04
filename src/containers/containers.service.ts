@@ -284,7 +284,7 @@ export class ContainersService {
         : null,
       etaAtTerminal: full.etaAtTerminal?.toISOString() ?? null,
       etaAtDestination: full.etaAtDestination?.toISOString() ?? null,
-      finalDestinationName: full.finalDestinationName,
+      finalDestinationName: full.isRailMove ? full.finalDestinationName : null,
       lastFreeDayAtRailStation:
         full.lastFreeDayAtRailStation?.toISOString() ?? null,
       etdFromOrigin: full.etdFromOrigin?.toISOString() ?? null,
@@ -314,7 +314,7 @@ export class ContainersService {
       portName: row.portName,
       terminalName: row.terminalName,
       portTerminal: presentation.portTerminal,
-      finalDestinationName: row.finalDestinationName,
+      finalDestinationName: row.isRailMove ? row.finalDestinationName : null,
       status: presentation.status,
       statusLabel: presentation.statusLabel,
       trackingStatus: row.trackingStatus,
@@ -579,6 +579,7 @@ type DashboardRow = {
   portName: string | null;
   portTerminal: string | null;
   steamshipLine: string | null;
+  finalDestinationName: string | null;
 };
 
 function matchesSearch(view: DashboardRow, search?: string) {
@@ -594,6 +595,7 @@ function matchesSearch(view: DashboardRow, search?: string) {
     view.carrier,
     view.portName,
     view.portTerminal,
+    view.finalDestinationName,
     view.steamshipLine,
   ]
     .filter(Boolean)
@@ -667,6 +669,10 @@ function searchWhere(search?: string): Prisma.ContainerWhereInput {
       { destination: { contains: term, mode: 'insensitive' } },
       { carrier: { contains: term, mode: 'insensitive' } },
       { portName: { contains: term, mode: 'insensitive' } },
+      {
+        isRailMove: true,
+        finalDestinationName: { contains: term, mode: 'insensitive' },
+      },
       { steamshipLine: { contains: term, mode: 'insensitive' } },
     ],
   };
